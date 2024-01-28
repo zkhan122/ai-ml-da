@@ -20,8 +20,8 @@ With each step of gradient descent, your parameters $\theta_j$ come closer to th
 
 *gradient descent* was described as:
 
-$$\begin{align*} \text{repeat}&\text{ until convergence:} \; \lbrace \newline
-\;  w &= w -  \alpha \frac{\partial J(w,b)}{\partial w} \tag{3}  \; \newline 
+$$\begin{align*} \text{repeat}&\text{ until convergence:} \ \lbrace \newline
+\  w &= w -  \alpha \frac{\partial J(w,b)}{\partial w} \tag{3}  \; \newline 
  b &= b -  \alpha \frac{\partial J(w,b)}{\partial b}  \newline \rbrace
 \end{align*}$$
 where, parameters $w$, $b$ are updated simultaneously.  
