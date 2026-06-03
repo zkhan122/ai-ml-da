@@ -70,23 +70,56 @@ class Network():
         return dC_dw3, dC_db3, dC_dA2
     
 
-    def backprop_l2(self, y_hat, Y, m, A1, W2):
-        A2 = y_hat
+    def backprop_l2(self, dC_dA2, A1, A2, W2):
         
-        dC_dz2 = (1 / m) * (A2 - Y) # dC_dZ3 = dC_dAL * dAL_dZL
+        dA2_dz2 = A2 * (1 - A2) # coming from layer after (backprop) -> this is the derivative of the sigmoid activation applied on layer 2
+        dC_dz2 = dC_dA2 * dA2_dz2 # this chains the gradient from the otuput layer (dC_dA2) to the sigmoid activation derivative through this hidden layer
+        
         dz2_dw2 = A1
         dC_dw2 = np.dot(dC_dz2, dz2_dw2.T)
 
         dz2_db2 = 1
 
         # bias in layer 3 
-        dC_db2 = np.sum(dC_dz2) # dz3_db3 is 1 anyways because dC_db3 = dC_dz3 * dC_db3
+        dC_db2 = np.sum(dC_dz2) 
 
         dz2_dA1 = W2
         dC_dA1 = np.dot(W2.T, dC_dz2)
 
         return dC_dw2, dC_db2, dC_dA1
+    
+    def backprop_l1(self, dC_dA1, A0, A1, W1): # W1 is not needed as it isnt used to backprop to input layer A0 cuz backprop is not applied to input layer
+
+        dA1_dz1 = A1 * (1 - A1)
+        dC_dz1 = dC_dA1 * dA1_dz1
+
+        dz1_dw1 = A0
+        dC_dw1 = np.dot(dC_dz1, dz1_dw1.T)
+        dz1_db1 = 1
+        dC_db1 = np.sum(dC_dz1)
+
+        # dz1_dA0 = W1
+        # dC_dA0 = np.dot(W1.T, dC_dz1)  # not needed as A0 is just the input layer and backprop is not applied to the input layer (again mentioned)
+
+        return dC_dw1, dC_db1 # , dC_dA0
+    
+    def gradient_descent(self, dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1, alpha):
+        # w = w - alpha * dC/dw
+        # b = b - alpha * dC/db 
+
+        self.W3 = self.W3 - (alpha * dC_dw3)
+        self.b2 = self.b2 - (alpha * dC_db2)
+
+        self.W2 = self.W2 - (alpha * dC_dw2)
+        self.b2 = self.b2 - (alpha * dC_db2)
         
+        self.W1 = self.W1 - (alpha * dC_dw1)
+        self.b1 = self.b1 - (alpha * dC_db1)
+
+        return W1, b1, W2, b2, W3, b3
+
+
+
 
 if __name__ == "__main__":
 
