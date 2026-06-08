@@ -6,7 +6,7 @@ from utils import *
 
 
 class Network():
-    def __init__(self, a_in: np.array, W1, b1, W2, b2, W3, b3):
+    def __init__(self, a_in: np.array, W1, b1, W2, b2, W3, b3, iterations, alpha):
         self.a_in = a_in
         self.W1 = W1
         self.b1 = b1
@@ -14,6 +14,8 @@ class Network():
         self.b2 = b2
         self.W3 = W3
         self.b3 = b3
+        self.iterations = iterations
+        self.alpha = alpha
 
     # def init_params(self):
     #     W1 = np.random.randn(3, 3)
@@ -49,7 +51,14 @@ class Network():
         # w_3 = W3[:, j]
         z_3 = np.dot(self.W3.T, a_out_2) + self.b3
         a_out_3 = sigmoid(z_3)
-        return a_out_3.T
+
+        cache = {
+            "A1": a_out_1,
+            "A2": a_out_2,
+            "A3": a_out_3
+        }
+
+        return a_out_3.T, cache
 
     
     def backprop_l3(self, y_hat, Y, m, A2, W3):
@@ -73,7 +82,7 @@ class Network():
     def backprop_l2(self, dC_dA2, A1, A2, W2):
         
         dA2_dz2 = A2 * (1 - A2) # coming from layer after (backprop) -> this is the derivative of the sigmoid activation applied on layer 2
-        dC_dz2 = dC_dA2 * dA2_dz2 # this chains the gradient from the otuput layer (dC_dA2) to the sigmoid activation derivative through this hidden layer
+        dC_dz2 = dC_dA2 * dA2_dz2 # this chains the gradient from the output layer (dC_dA2) to the sigmoid activation derivative through this hidden layer
         
         dz2_dw2 = A1
         dC_dw2 = np.dot(dC_dz2, dz2_dw2.T)
@@ -103,20 +112,43 @@ class Network():
 
         return dC_dw1, dC_db1 # , dC_dA0
     
-    def gradient_descent(self, dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1, alpha):
+    def gradient_descent(self, dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1):
+
         # w = w - alpha * dC/dw
         # b = b - alpha * dC/db 
 
-        self.W3 = self.W3 - (alpha * dC_dw3)
-        self.b2 = self.b2 - (alpha * dC_db2)
+        self.W3 = self.W3 - (self.alpha * dC_dw3)
+        self.b2 = self.b2 - (self.alpha * dC_db3)
 
-        self.W2 = self.W2 - (alpha * dC_dw2)
-        self.b2 = self.b2 - (alpha * dC_db2)
+        self.W2 = self.W2 - (self.alpha * dC_dw2)
+        self.b2 = self.b2 - (self.alpha * dC_db2)
         
-        self.W1 = self.W1 - (alpha * dC_dw1)
-        self.b1 = self.b1 - (alpha * dC_db1)
+        self.W1 = self.W1 - (self.alpha * dC_dw1)
+        self.b1 = self.b1 - (self.alpha * dC_db1)
 
-        return W1, b1, W2, b2, W3, b3
+        return self.W1, self.b1, self.W2, self.b2, self.W3, self.b3
+
+    def train(self, Y):
+        costs = []
+        for epoch in range(self.iterations):
+            y_hat, cache = self.forward_prop()
+
+            error = cost(y_hat, Y)
+            costs.append(error)
+
+            # backprop
+            dC_dw3, dC_db3, dC_dA2 = self.backprop_l3(y_hat, Y, y_hat.shape[0], cache["A2"], self.W3)
+            dC_dw2, dC_db2, dC_dA1 = self.backprop_l2(dC_dA2, cache["A1"], cache["A2"], self.W2)
+            dC_dw1, dC_db1 = self.backprop_l1(dC_dA1, cache["A0"], cache["A1"], self.W1)
+
+            self.gradient_descent(dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1)
+
+            if epoch % 10 == 0:
+                print(f"epoch {epoch+1}: cost = {error:4f}")
+        
+        return costs
+
+        
 
 
 
@@ -146,8 +178,10 @@ if __name__ == "__main__":
 # W3 -> (3, 1), b3 -> (1, 1)
 # z3 = (3, 1)^T * (3, 4094) + (1, 1) = (1, 4094)^T = (4094, 1) -> y_pred (4094 rows, 1 col)
 
+    iterations = 100
+    alpha = 0.1
 
-    network = Network(np.array(X), W1, b1, W2, b2, W3, b3)
+    network = Network(np.array(X), W1, b1, W2, b2, W3, b3, iterations, alpha)
     # print(network.init_params())
     print(network.print_params())
 
@@ -157,3 +191,5 @@ if __name__ == "__main__":
 
     costs = cost(a_out, y)
     print("Cost", costs)
+
+    costs = network.train(y)
