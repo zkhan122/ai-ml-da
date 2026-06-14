@@ -51,12 +51,15 @@ class Network():
         # w_3 = W3[:, j]
         z_3 = np.dot(self.W3.T, a_out_2) + self.b3
         a_out_3 = sigmoid(z_3)
+        #a_out_3 = np.expand_dims(a_out_3, axis=0)
 
         cache = {
-            "A1": a_out_1,
-            "A2": a_out_2,
-            "A3": a_out_3
+            "A1": np.array(a_out_1),
+            "A2": np.array(a_out_2),
+            "A3": np.array(a_out_3)
         }
+
+        print("Activated output:", a_out_3.shape)
 
         return a_out_3.T, cache
 
@@ -81,7 +84,7 @@ class Network():
 
     def backprop_l2(self, dC_dA2, A1, A2, W2):
         
-        dA2_dz2 = A2 * (1 - A2) # coming from layer after (backprop) -> this is the derivative of the sigmoid activation applied on layer 2
+        dA2_dz2 = A2 * (1 - A2) # coming from layer after (backprop) -> this is the derivative of the sigmoid acti.vation applied on layer 2
         dC_dz2 = dC_dA2 * dA2_dz2 # this chains the gradient from the output layer (dC_dA2) to the sigmoid activation derivative through this hidden layer
         
         dz2_dw2 = A1
@@ -188,8 +191,5 @@ if __name__ == "__main__":
 
     a_out = network.forward_prop()
     print("a_out", a_out)
-
-    costs = cost(a_out, y)
-    print("Cost", costs)
 
     costs = network.train(y)
