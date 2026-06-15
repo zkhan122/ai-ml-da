@@ -1,4 +1,3 @@
-
 from typing import List
 import numpy as np
 from layer import Layer
@@ -35,6 +34,9 @@ class Network():
         print("W3", self.W3)
         print("b3", self.b3)
 
+    
+    # FORWARD A0 --W1--> A1 --W2--> A2 --W3--> A3
+
     def forward_prop(self): # feed forward
         units = self.W1.shape[1] # batch size = m = num training samples
         a_out_1 = np.zeros(units)
@@ -46,7 +48,7 @@ class Network():
 
         # w_2 = W2[:, j]
         z_2 = np.dot(self.W2, a_out_1) + self.b2
-        a_out_2 = sigmoid(  z_2)
+        a_out_2 = sigmoid(z_2)
 
         # w_3 = W3[:, j]
         z_3 = np.dot(self.W3.T, a_out_2) + self.b3
@@ -54,16 +56,18 @@ class Network():
         #a_out_3 = np.expand_dims(a_out_3, axis=0)
 
         cache = {
-            "A1": np.array(a_out_1),
-            "A2": np.array(a_out_2),
-            "A3": np.array(a_out_3)
+            "A0": np.array(self.a_in, dtype=np.float32),
+            "A1": np.array(a_out_1, dtype=np.float32),
+            "A2": np.array(a_out_2, dtype=np.float32),
+            "A3": np.array(a_out_3, dtype=np.float32)
         }
 
-        print("Activated output:", a_out_3.shape)
+        # print("Activated output in forward prop:", a_out_3.shape)
 
-        return a_out_3.T, cache
+        return a_out_3, cache
 
-    
+    #  BACKPROP A0 (input layer - no backprop) <- dC/dA2 <- A1 <- dC/dA2 <- A2 <- dC/dw3 <- A3 (Cost)
+
     def backprop_l3(self, y_hat, Y, m, A2, W3):
         A3 = y_hat
         
@@ -77,7 +81,7 @@ class Network():
         dC_db3 = np.sum(dC_dz3) # dz3_db3 is 1 anyways because dC_db3 = dC_dz3 * dC_db3
 
         dz3_dA2 = W3
-        dC_dA2 = np.dot(W3.T, dC_dz3)
+        dC_dA2 = np.dot(W3, dC_dz3)
 
         return dC_dw3, dC_db3, dC_dA2
     
@@ -106,7 +110,7 @@ class Network():
         dC_dz1 = dC_dA1 * dA1_dz1
 
         dz1_dw1 = A0
-        dC_dw1 = np.dot(dC_dz1, dz1_dw1.T)
+        dC_dw1 = np.dot(dC_dz1, dz1_dw1)
         dz1_db1 = 1
         dC_db1 = np.sum(dC_dz1)
 
@@ -121,7 +125,7 @@ class Network():
         # b = b - alpha * dC/db 
 
         self.W3 = self.W3 - (self.alpha * dC_dw3)
-        self.b2 = self.b2 - (self.alpha * dC_db3)
+        self.b3 = self.b3 - (self.alpha * dC_db3)
 
         self.W2 = self.W2 - (self.alpha * dC_dw2)
         self.b2 = self.b2 - (self.alpha * dC_db2)
@@ -132,7 +136,10 @@ class Network():
         return self.W1, self.b1, self.W2, self.b2, self.W3, self.b3
 
     def train(self, Y):
+        print("Y shape:", Y.shape)
+        m = Y.shape[0]
         costs = []
+        wb_dict = {"W1": None, "b1": None, "W2": None, "b2": None, "W3": None, "b3": None}
         for epoch in range(self.iterations):
             y_hat, cache = self.forward_prop()
 
@@ -140,17 +147,23 @@ class Network():
             costs.append(error)
 
             # backprop
-            dC_dw3, dC_db3, dC_dA2 = self.backprop_l3(y_hat, Y, y_hat.shape[0], cache["A2"], self.W3)
+            dC_dw3, dC_db3, dC_dA2 = self.backprop_l3(y_hat, Y, m, cache["A2"], self.W3)
             dC_dw2, dC_db2, dC_dA1 = self.backprop_l2(dC_dA2, cache["A1"], cache["A2"], self.W2)
             dC_dw1, dC_db1 = self.backprop_l1(dC_dA1, cache["A0"], cache["A1"], self.W1)
 
-            self.gradient_descent(dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1)
+            gW1, gb1, gW2, gb2, gW3, gb3, = self.gradient_descent(dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1)
 
-            if epoch % 10 == 0:
+            wb_dict["W1"] = gW1
+            wb_dict["b1"] = gb1
+            wb_dict["W2"] = gW2
+            wb_dict["b2"] = gb2
+            wb_dict["W3"] = gW3
+            wb_dict["b3"] = gb3
+            
+            if epoch == 0 or epoch % 10 == 0:
                 print(f"epoch {epoch+1}: cost = {error:4f}")
         
-        return costs
-
+        return costs, wb_dict
         
 
 
@@ -192,4 +205,8 @@ if __name__ == "__main__":
     a_out = network.forward_prop()
     print("a_out", a_out)
 
-    costs = network.train(y)
+    costs, wb_dict = network.train(y)
+    # print("Costs:", costs, "\n")
+    
+    for k, v in wb_dict.items():
+        print(f"weight: {k} -> value: \n{v}\n")
