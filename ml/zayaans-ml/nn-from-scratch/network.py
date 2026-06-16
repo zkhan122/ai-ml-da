@@ -70,7 +70,7 @@ class Network():
 
     def backprop_l3(self, y_hat, Y, m, A2, W3):
         A3 = y_hat
-        
+        pos_weight = 10
         dC_dz3 = (1 / m) * (A3 - Y) # dC_dZ3 = dC_dAL * dAL_dZL
         dz3_dw3 = A2
         dC_dw3 = np.dot(dC_dz3, dz3_dw3.T)
@@ -123,6 +123,10 @@ class Network():
 
         # w = w - alpha * dC/dw
         # b = b - alpha * dC/db 
+        # print("shape of weights before gradient descent")
+        # print(self.W3.shape)
+        # print(self.W2.shape)
+        # print(self.W1.shape)
 
         self.W3 = self.W3 - (self.alpha * dC_dw3)
         self.b3 = self.b3 - (self.alpha * dC_db3)
@@ -133,16 +137,37 @@ class Network():
         self.W1 = self.W1 - (self.alpha * dC_dw1)
         self.b1 = self.b1 - (self.alpha * dC_db1)
 
+        # print("shape of weights after gradient descent")
+        # print(self.W3.shape)
+        # print(self.W2.shape)
+        # print(self.W1.shape)
+
         return self.W1, self.b1, self.W2, self.b2, self.W3, self.b3
+    
+    def calc_accuracy(self, y_hat, y_true, threshold=0.5):
+        preds = (y_hat >= threshold).astype(int)
+        
+        tp = np.sum((preds == 1) & (y_true == 1))
+        fp = np.sum((preds == 1) & (y_true == 0))
+        fn = np.sum((preds == 0) & (y_true == 1))
+        
+        precision = tp / (tp + fp + 1e-8)
+        recall    = tp / (tp + fn + 1e-8)
+        f1        = 2 * (precision * recall) / (precision + recall + 1e-8)
+        return f1
 
     def train(self, Y):
-        print("Y shape:", Y.shape)
-        m = Y.shape[0]
+        Y = Y.reshape(1, -1)
+        min_error = math.inf
+
+        # print("Y shape:", Y.shape)
+        m = Y.shape[1]
         costs = []
-        wb_dict = {"W1": None, "b1": None, "W2": None, "b2": None, "W3": None, "b3": None}
+        optimal_wb_dict = {"W1": None, "b1": None, "W2": None, "b2": None, "W3": None, "b3": None}
+        final_wb_dict = {"W1": None, "b1": None, "W2": None, "b2": None, "W3": None, "b3": None}
         for epoch in range(self.iterations):
             y_hat, cache = self.forward_prop()
-
+            # print("DEBUG y_hat shape before loss:", y_hat.shape)
             error = cost(y_hat, Y)
             costs.append(error)
 
@@ -152,19 +177,42 @@ class Network():
             dC_dw1, dC_db1 = self.backprop_l1(dC_dA1, cache["A0"], cache["A1"], self.W1)
 
             gW1, gb1, gW2, gb2, gW3, gb3, = self.gradient_descent(dC_dw3, dC_db3, dC_dw2, dC_db2, dC_dw1, dC_db1)
+            # print("W3 mean:", np.mean(self.W3))
+            # print("W2 mean:", np.mean(self.W2))
+            # print("W1 mean:", np.mean(self.W1))
+            if error < min_error:
+                min_error = error
+                optimal_wb_dict["W1"] = gW1
+                optimal_wb_dict["b1"] = gb1
+                optimal_wb_dict["W2"] = gW2
+                optimal_wb_dict["b2"] = gb2
+                optimal_wb_dict["W3"] = gW3
+                optimal_wb_dict["b3"] = gb3
 
-            wb_dict["W1"] = gW1
-            wb_dict["b1"] = gb1
-            wb_dict["W2"] = gW2
-            wb_dict["b2"] = gb2
-            wb_dict["W3"] = gW3
-            wb_dict["b3"] = gb3
+            final_wb_dict["W1"] = gW1
+            final_wb_dict["b1"] = gb1
+            final_wb_dict["W2"] = gW2
+            final_wb_dict["b2"] = gb2
+            final_wb_dict["W3"] = gW3
+            final_wb_dict["b3"] = gb3
+
+            # print("yhat", y_hat.shape)
+            # print("y", Y.shape)
+
+            # print("y_hat shape:", y_hat.shape)
+            # print("y_hat:", y_hat)
             
             if epoch == 0 or epoch % 10 == 0:
-                print(f"epoch {epoch+1}: cost = {error:4f}")
+                print(f"epoch {epoch+1}: cost = {error:4f} | accuracy = {self.calc_accuracy(y_hat, Y)}")
+                # pass
+            
+        print("min:", np.min(y_hat))
+        print("max:", np.max(y_hat))
+        print("mean:", np.mean(y_hat))
+    
+        return costs, min_error, optimal_wb_dict, final_wb_dict
         
-        return costs, wb_dict
-        
+    
 
 
 
@@ -172,15 +220,16 @@ class Network():
 if __name__ == "__main__":
 
     X, y = feature_conv()
-    print("feature and output shapes:")
-    print(X.shape) # (4094, 3) -> 4094 rows, 3 cols for the features
-    print(y.shape) # (4904, 1) -> 4094 rows, 1 col for the y_true
+    # print("Counts:", np.unique(y, return_counts=True))
+    # print("feature and output shapes:")
+    # print(X.shape) # (4094, 3) -> 4094 rows, 3 cols for the features
+    # print(y.shape) # (4904, 1) -> 4094 rows, 1 col for the y_true
 
-    W1 = np.random.randn(3, 3)
+    W1 = np.random.randn(3, 3) * np.sqrt(1 / 3)
     b1 = np.random.randn(3, 1) # zᴸ = Wᴸ * Aᴸ⁻¹ + bᴸ -> (3, 2)*(2, 1) = (3, 1)
-    W2 = np.random.randn(3, 3) # batchsize=col=3 -> 3 features, 3 training samples
+    W2 = np.random.randn(3, 3) * np.sqrt(1 / 3) # batchsize=col=3 -> 3 features, 3 training samples
     b2 = np.random.randn(3, 1) # one bias term applied for every node (3 features 1 sample overall -> batch size = 1)
-    W3 = np.random.randn(3, 1) #  output node weight
+    W3 = np.random.randn(3, 1) * np.sqrt(1 / 3) #  output node weight
     b3 = np.random.rand(1, 1) # output node bias
 
 # input -> (4094, 3)
@@ -194,19 +243,26 @@ if __name__ == "__main__":
 # W3 -> (3, 1), b3 -> (1, 1)
 # z3 = (3, 1)^T * (3, 4094) + (1, 1) = (1, 4094)^T = (4094, 1) -> y_pred (4094 rows, 1 col)
 
-    iterations = 100
-    alpha = 0.1
+    iterations = 100000
+    alpha = 0.01
 
-    network = Network(np.array(X), W1, b1, W2, b2, W3, b3, iterations, alpha)
+    pos_idx = np.where(y == 1)[0]
+    neg_idx = np.where(y == 0)[0]
+
+    # Oversample positives to match negatives
+    pos_oversampled = np.random.choice(pos_idx, size=len(neg_idx), replace=True)
+    all_idx = np.concatenate([neg_idx, pos_oversampled])
+    np.random.shuffle(all_idx)
+
+    X_balanced = X[all_idx]
+    y_balanced = y[all_idx]
+
+    network = Network(np.array(X_balanced), W1, b1, W2, b2, W3, b3, iterations, alpha)
     # print(network.init_params())
     print(network.print_params())
 
-
-    a_out = network.forward_prop()
-    print("a_out", a_out)
-
-    costs, wb_dict = network.train(y)
+    costs, min_error, optimal_wb_dict, final_wb_dict = network.train(y_balanced)
     # print("Costs:", costs, "\n")
-    
-    for k, v in wb_dict.items():
+    print(f"Min error found: {min_error} with optimal params {optimal_wb_dict}")
+    for k, v in final_wb_dict.items():
         print(f"weight: {k} -> value: \n{v}\n")
